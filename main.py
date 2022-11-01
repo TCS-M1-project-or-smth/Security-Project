@@ -7,7 +7,7 @@ from database import Database
 class Main:
     def __init__(self):
         self.database = Database()
-        self.database.insert_uid()
+        self.database.insert()
         self.database.get_bal_from_uid(1234)
         #self.run_serial()
 
