@@ -1,4 +1,5 @@
 import sqlite3
+import os
 import rsa  # pip install rsa
 
 
@@ -14,14 +15,28 @@ class Database:
 			clearance int,
 			counterval tinyint
 		)""")
+
+		self.publkey, self.privkey = rsa.newkeys(512)
+		with open("public.pem", "wb") as f:
+			f.write(self.publkey.save_pkcs1(format='PEM'))
+		with open("private.pem", "wb") as f:
+			f.write(self.privkey.save_pkcs1(format='PEM'))
+
 		with open("public.pem", "rb") as f:
 			data = f.read()
 		self.publkey = rsa.PublicKey.load_pkcs1(data)
+		os.remove("public.pem")
 		with open("private.pem", "rb") as f:
 			data = f.read()
 		self.privkey = rsa.PrivateKey.load_pkcs1(data)
+		os.remove("private.pem")
 
 	def __del__(self):
+		print("Shutting down database (writing public and private key to local files)")
+		with open("public.pem", "wb") as f:
+			f.write(self.publkey.save_pkcs1(format='PEM'))
+		with open("private.pem", "wb") as f:
+			f.write(self.privkey.save_pkcs1(format='PEM'))
 		self.__connection.close()
 
 	def get_bal_from_uid(self, uid):

@@ -10,12 +10,16 @@ class Main:
         self.database.insert()
         self.database.get_bal_from_uid(1234)
         #self.run_serial()
+        self.shutdown()
 
     def run_serial(self):
         with serial.Serial(sys.argv[0] if ["COM3", "COM4", "COM5"] in sys.argv else "COM5", 9600) as ser:
             uid = ser.read(4)
             print(f"{uid=}")
             self.database.get_bal_from_uid(uid)
+
+    def shutdown(self):
+        del self.database
 
 
 if __name__ == '__main__':
