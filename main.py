@@ -10,14 +10,8 @@ class Main:
 	def __init__(self):
 		self.database = Database()
 		self.publkey, self.privkey = rsa.newkeys(512)
-		# For testing
-		#self.database.insert()
-		#self.database.get_bal_from_uid(1234)
 		self.apublkey = None
 		self.serialthread = threading.Thread(target=self.run_serial, daemon=True)
-		# self.dbthread = threading.Thread(target=self.database.tick, daemon=True)
-		# self.dbthread.start()
-		# self.serialthread.start()
 		self.adthread = threading.Thread(target=self.admin, daemon=True)
 		self.adthread.start()
 		self.database.tick()
@@ -25,8 +19,8 @@ class Main:
 
 	def admin(self):
 		while True:
-			#inp = input("$> ")
-			inp = "insert 1234 2000 mboom 01-10-2005 69 420 0 123"
+			inp = input("$> ")
+			#inp = "insert 1234 2000 mboom 01-10-2005 69 420 0 123"
 			#inp = "select 1234"
 			if inp.lower() == "exit" or inp == "":
 				self.database.running = False
@@ -37,13 +31,14 @@ class Main:
 				case "INSERT":
 					match split[1].lower():
 						case "campuscard":
-							self.database.queue.append((self.database.insert_campuscard, split[1:]))
-						case "campuscard":
-							self.database.queue.append((self.database.insert_campuscard, split[1:]))
+							self.database.queue.append((self.database.insert_campuscard, split[2:]))
+						case "readers":
+							self.database.queue.append((self.database.insert_readers, split[2:]))
+						case "clearances":
+							self.database.queue.append((self.database.insert_clearances, split[2:]))
 				case "SELECT":
 					self.database.queue.append((self.database.select, split[1:]))
-			self.database.running = False
-			break
+
 
 	def run_serial(self):
 		with serial.Serial(sys.argv[0] if ["COM3", "COM4", "COM5"] in sys.argv else "COM5", 9600) as ser:

@@ -75,7 +75,7 @@ class Database:
 			if len(self.queue) > 0:
 				try:
 					self.queue[0][0](*self.queue[0][1])
-				except Exception as e:
+				except sqlite3.Error as e:
 					print(e)
 				self.queue.pop(0)
 
@@ -102,13 +102,13 @@ class Database:
 		self.cursor.execute("SELECT action_type FROM readers WHERE reader_id=?", [rid])
 
 	def get_bal_from_uid(self, uid):
-		self.cursor.execute("SELECT bal, full_name FROM campuscards WHERE uid=?", [self.cuid(uid)])
+		self.cursor.execute("SELECT bal FROM campuscards WHERE uid=?", [self.cuid(uid)])
 		fetch = self.cursor.fetchone()
-		print(fetch[0], rsa.decrypt(fetch[1], self.privkey))
+		return fetch[0] if fetch is not None else 0
 
 	def insert_campuscard(self, *args):  # args: [uid, bal, full_name, dob, person_id, clearance_id, blocked, counterval]
 		if len(args) != 8:
-			print(f"INSERT expected 8 arguments, got {len(args)}")
+			print(f"INSERT campuscard expected 8 arguments, got {len(args)}")
 			return
 
 		try:
@@ -116,26 +116,38 @@ class Database:
 								[self.cuid(args[0]), int(args[1]), self.encrypt(args[2]),
 								 datetime.strptime(args[3], "%d-%m-%Y"), self.encrypt(args[4]), int(args[5]),
 								 args[6], int(args[7])])
-			print(self.get_bal_from_uid(args[0]))
 			self.__connection.commit()
 		except ValueError:
 			print("Failed to convert to int")
+		except sqlite3.Error as e:
+			print("Failed to insert:")
+			print(e)
 	
-	def insert_reader(self, *args):  # args: [rid, clearance_id, action_type]
-		if len(args) != 8:
-			print(f"INSERT expected 8 arguments, got {len(args)}")
+	def insert_readers(self, *args):  # args: [rid, clearance_id, action_type]
+		if len(args) != 3:
+			print(f"INSERT readers expected 3 arguments, got {len(args)}")
 			return
 
 		try:
-			self.cursor.execute("INSERT INTO readers VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-							[self.cuid(args[0]), int(args[1]), self.encrypt(args[2]), datetime.strptime(args[3], "%d-%m-%Y"), self.encrypt(args[4]), int(args[5]),
-							 args[6], int(args[7])])
-			print(self.get_bal_from_uid(args[0]))
+			self.cursor.execute("INSERT INTO readers VALUES (?, ?, ?)", args)
 			self.__connection.commit()
-		except ValueError:
-			print("Failed to convert to int")
+		except sqlite3.Error as e:
+			print("Failed to insert:")
+			print(e)
 
-	def select(self, *args):  # TODO: temporary maybe
+	def insert_clearances(self, *args):  # args: [clearance_id, description, category]
+		if len(args) != 3:
+			print(f"INSERT clearances expected 3 arguments, got {len(args)}")
+			return
+
+		try:
+			self.cursor.execute("INSERT INTO clearances VALUES (?, ?, ?)", args)
+			self.__connection.commit()
+		except sqlite3.Error as e:
+			print("Failed to insert:")
+			print(e)
+
+	def select_campuscard(self, *args):
 		cuid = rsa.sign(args[0].encode("utf-8"), self.privkey, 'SHA-256')
 		self.cursor.execute("SELECT * FROM campuscards WHERE uid=?", [cuid])
 		fetch = self.cursor.fetchone()
@@ -170,7 +182,7 @@ class Database:
 		try:
 			self.cursor.execute("INSERT INTO transactions VALUES (?, ?, ?, ?)", [pid, timestamp, rid, amount])
 			self.__connection.commit()
-		except Exception as e:
+		except sqlite3.Error as e:
 			print(f"Failed to create transaction:")
 			print(e)
 			return None
