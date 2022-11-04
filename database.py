@@ -9,6 +9,7 @@ class Database:
 		self.__connection = sqlite3.connect("system.db")
 		self.__connection.execute("PRAGMA foreign_keys = 1")
 		self.queue: list[tuple[callable, list]] = []  # (method, *args)
+		self.result = None
 		self.running = True
 		self.cursor = self.__connection.cursor()
 
@@ -56,11 +57,11 @@ class Database:
 		with open("public.pem", "rb") as f:
 			data = f.read()
 		self.publkey = rsa.PublicKey.load_pkcs1(data)
-		os.remove("public.pem")
+		#os.remove("public.pem")
 		with open("private.pem", "rb") as f:
 			data = f.read()
 		self.privkey = rsa.PrivateKey.load_pkcs1(data)
-		os.remove("private.pem")
+		#os.remove("private.pem")
 
 	def __del__(self):
 		print("Shutting down database (writing public and private key to local files)")
@@ -75,6 +76,7 @@ class Database:
 			if len(self.queue) > 0:
 				try:
 					self.queue[0][0](*self.queue[0][1])
+					self.result = self.cursor.fetchone()
 				except sqlite3.Error as e:
 					print(e)
 				self.queue.pop(0)
@@ -86,13 +88,13 @@ class Database:
 		return rsa.encrypt(msg.encode('utf-8'), self.publkey)
 
 	def check_blocked(self, uid):
-		self.cursor.execute("SELECT blocked FROM campuscards WHERE uid=?", [self.cuid(uid)])
-		fetch = self.cursor.fetchone()
+		self.queue.append((self.cursor.execute, ["SELECT blocked FROM campuscards WHERE uid=?", [self.cuid(uid)]]))
+		fetch = self.result
 		return fetch is not None and fetch[0]
 
 	def check_counter_val(self, uid, counter):
-		self.cursor.execute("SELECT counter FROM campuscards WHERE uid=?", [self.cuid(uid)])
-		fetch = self.cursor.fetchone()
+		self.queue.append((self.cursor.execute, ["SELECT counter FROM campuscards WHERE uid=?", [self.cuid(uid)]]))
+		fetch = self.result
 		return fetch is not None and fetch[0] == counter
 
 	def mark_blocked(self, uid):
@@ -103,7 +105,7 @@ class Database:
 
 	def get_bal_from_uid(self, uid):
 		self.cursor.execute("SELECT bal FROM campuscards WHERE uid=?", [self.cuid(uid)])
-		fetch = self.cursor.fetchone()
+		fetch = self.result
 		return fetch[0] if fetch is not None else 0
 
 	def insert_campuscard(self, *args):  # args: [uid, bal, full_name, dob, person_id, clearance_id, blocked, counterval]
@@ -122,7 +124,7 @@ class Database:
 		except sqlite3.Error as e:
 			print("Failed to insert:")
 			print(e)
-	
+
 	def insert_readers(self, *args):  # args: [rid, clearance_id, action_type]
 		if len(args) != 3:
 			print(f"INSERT readers expected 3 arguments, got {len(args)}")
@@ -155,9 +157,9 @@ class Database:
 				rsa.decrypt(fetch[3], self.privkey), fetch[4], fetch[5])
 
 	def has_sufficient_clearance(self, uid, rid):
-		self.cursor.execute("SELECT clearance_id FROM campuscards WHERE uid=?", [self.cuid(uid)])
+		self.queue.append((self.cursor.execute, ["SELECT clearance_id FROM campuscards WHERE uid=?", [self.cuid(uid)]]))
 		fetch1 = self.cursor.fetchone()
-		self.cursor.execute("SELECT clearance_id FROM readers WHERE reader_id=?", [rid])
+		self.queue.append((self.cursor.execute, ["SELECT clearance_id FROM readers WHERE reader_id=?", [rid]]))
 		fetch2 = self.cursor.fetchone()
 		return fetch1 is not None and fetch2 is not None and fetch1[0] == fetch2[0]
 
