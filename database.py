@@ -56,11 +56,11 @@ class Database:
 		with open("public.pem", "rb") as f:
 			data = f.read()
 		self.publkey = rsa.PublicKey.load_pkcs1(data)
-		os.remove("public.pem")
+		# os.remove("public.pem") // for demonstration purposes, do not use this
 		with open("private.pem", "rb") as f:
 			data = f.read()
 		self.privkey = rsa.PrivateKey.load_pkcs1(data)
-		os.remove("private.pem")
+		# os.remove("private.pem")
 
 	def __del__(self):
 		print("Shutting down database (writing public and private key to local files)")
@@ -79,6 +79,14 @@ class Database:
 					print(e)
 				self.queue.pop(0)
 
+	def tick_testing(self):
+		if len(self.queue) > 0:
+			try:
+				self.queue[0][0](*self.queue[0][1])
+			except sqlite3.Error as e:
+				print(e)
+			self.queue.pop(0)
+
 	def cuid(self, uid):
 		return rsa.sign(str(uid).encode("utf-8"), self.privkey, 'SHA-256')
 
@@ -91,15 +99,17 @@ class Database:
 		return fetch is not None and fetch[0]
 
 	def check_counter_val(self, uid, counter):
-		self.cursor.execute("SELECT counter FROM campuscards WHERE uid=?", [self.cuid(uid)])
+		self.cursor.execute("SELECT counterval FROM campuscards WHERE uid=?", [self.cuid(uid)])
 		fetch = self.cursor.fetchone()
 		return fetch is not None and fetch[0] == counter
 
 	def mark_blocked(self, uid):
-		self.cursor.execute("UPDATE TABLE campuscards SET blocked = 1 WHERE uid=?", [self.cuid(uid)])
+		self.cursor.execute("UPDATE campuscards SET blocked = 1 WHERE uid=?", [self.cuid(uid)])
 
 	def get_action_type_from_reader(self, rid):
 		self.cursor.execute("SELECT action_type FROM readers WHERE reader_id=?", [rid])
+		fetch = self.cursor.fetchone()
+		return fetch[0] if fetch is not None else -1
 
 	def get_bal_from_uid(self, uid):
 		self.cursor.execute("SELECT bal FROM campuscards WHERE uid=?", [self.cuid(uid)])
@@ -122,7 +132,7 @@ class Database:
 		except sqlite3.Error as e:
 			print("Failed to insert:")
 			print(e)
-	
+
 	def insert_readers(self, *args):  # args: [rid, clearance_id, action_type]
 		if len(args) != 3:
 			print(f"INSERT readers expected 3 arguments, got {len(args)}")
@@ -180,7 +190,8 @@ class Database:
 		pid = fetch[0]  # pid is encrypted
 		timestamp = datetime.now()
 		try:
-			self.cursor.execute("INSERT INTO transactions VALUES (?, ?, ?, ?)", [pid, timestamp, rid, amount])
+			print(hex(int.from_bytes(pid, 'big')))
+			self.cursor.execute("INSERT INTO transactions VALUES (?, ?, ?, ?, 0)", [pid, timestamp, rid, amount])
 			self.__connection.commit()
 		except sqlite3.Error as e:
 			print(f"Failed to create transaction:")
