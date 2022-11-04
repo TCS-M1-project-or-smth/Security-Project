@@ -1,1 +1,11 @@
-Pls work u stupid webhook
+The GitHub repository containing all of Security Group 47's code.
+
+Files:
+ - card_reader.ino  - the arduino code
+ - main.py          - the python code to run
+ - database.py      - the backend database module
+ - getch.py         - some fancy input module by Melle
+ - public.pem       - public RSA key used for database encryption
+ - private.pem      - private RSA key used for database decryption
+ - system.db        - SQLite3 database file containing the tables
+ - LICENSE          - A license "protecting" this "open-source" code
